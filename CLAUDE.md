@@ -184,10 +184,17 @@ side by side: what each source does, what it costs, its free tier, and which
 | **DataForSEO Business Listings** | $0.372/1k businesses | $1 credit | Local trades, clinics, contractors. Phone + domain + rating + whether the listing is claimed, and it can filter for businesses with **no website at all**. |
 | **DataForSEO SERP** | $0.0018 a search at depth 30 | $1 credit + free sandbox | Rank as the buying signal. Positions 11-30 are the sweet spot. |
 | **Serper** | ~$0.30-$1.00/1k | 2,500 free, no card | The easiest paid one to try. |
+| **Newsletter sponsors** (`--provider sponsors`) | free | unlimited | Newsletters selling ad space. Reads the archives of peer newsletters (`icp.seed_newsletters` or `--newsletter`) and records every brand in a sponsor section. |
 
 Cities are geocoded automatically (cached forever, one lookup per city), or set
 `icp.geo_coordinates` in harvey.yaml to control the radius:
 `"Denver, CO": "39.7392,-104.9903,50"`.
+
+**Selling newsletter sponsorships?** Start from `examples/newsletter-sponsorship.yaml`:
+the "product" is the audience, `icp.seed_newsletters` lists peer newsletters, and
+`skills: [newsletter_sponsorship]` gives the writer and handler the playbook for
+pitching brands. Audience numbers come only from `product:`, so ask the user for
+exact, current figures rather than estimating them.
 
 **Depth 20-30, not 100.** Google removed 100-results-per-page in September 2025,
 so depth 100 is now billed as ten pages at nearly every provider. Below rank 30

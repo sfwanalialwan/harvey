@@ -115,7 +115,8 @@ class Scout:
         """Main prospecting flow: find leads matching ICP."""
         logger.info("Scout: Starting prospecting cycle...")
 
-        self.skills = self.brain.load_skills_for_agent("scout")
+        self.skills = self.brain.load_skills_for_agent(
+            "scout", extra=getattr(self.config, "skills", None))
         self._queries_this_cycle = 0
         self._seen_prospect_keys = set()
         self._seen_domains = set()

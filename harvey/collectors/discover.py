@@ -193,6 +193,12 @@ class Business:
     external_id: str = ""            # "<provider>:<stable id>"
     source_url: str = ""
     provider: str = ""
+    # Newsletter sponsors only: whose issues they appeared in, how often, and
+    # the latest issue as evidence a writer can cite.
+    sponsor_of: str = ""
+    placements: int = 0
+    evidence_title: str = ""
+    confidence: float = 1.0
 
     def identity(self) -> str:
         return self.domain or self.external_id
@@ -588,12 +594,146 @@ class OpenStreetMap(DiscoveryProvider):
         return out
 
 
+class NewsletterSponsors(DiscoveryProvider):
+    """Brands that sponsored the newsletters you name. Free, no key.
+
+    For a newsletter selling sponsorships this answers the question that
+    matters: who is *already buying* placements in front of readers like
+    yours. Each query is one peer newsletter's URL; the provider reads its
+    RSS feed and records every brand in a sponsor section, with the issue as
+    evidence. See ``harvey.collectors.sponsors`` for how detection works.
+    """
+
+    key = "sponsors"
+    label = "Newsletter sponsors (RSS)"
+    kind = "sponsors"
+    blurb = ("Reads the public archives of newsletters in your niche and lists "
+             "every brand that sponsored them. The warmest leads a newsletter "
+             "can pitch: they already buy this exact placement.")
+    cost_note = "free"
+    free_tier = "unlimited — two requests per newsletter"
+    signup_url = "https://en.wikipedia.org/wiki/RSS"
+    env_keys = ()
+    caveat = ("Only sees what a newsletter publishes on the web. Most beehiiv, "
+              "Substack and Ghost newsletters do; some keep sponsor blocks "
+              "email-only, and those will come back empty.")
+
+    MIN_INTERVAL = 1.0
+    HEADERS = {
+        "User-Agent": "Harvey/0.1 (open-source sponsor finder; "
+                      "github.com/ethanplusai/harvey)",
+        "Accept": "application/rss+xml, application/atom+xml, "
+                  "application/xml;q=0.9, text/html;q=0.8",
+    }
+
+    async def _feed_posts(self, client, url: str):
+        from harvey.collectors import sponsors as S
+
+        tried = []
+        for candidate in S.feed_candidates(url):
+            tried.append(candidate)
+            try:
+                r = await client.get(candidate, headers=self.HEADERS)
+            except httpx.HTTPError as e:
+                logger.debug("sponsors: %s unreachable (%s)", candidate, e)
+                continue
+            if r.status_code == 200:
+                posts = S.parse_feed(r.text)
+                if posts:
+                    return posts, candidate
+        # Last resort: the homepage may advertise its feed somewhere else.
+        home = url if "://" in url else "https://" + url
+        try:
+            page = await client.get(home, headers=self.HEADERS)
+            if page.status_code == 200:
+                link = S.feed_link_from_html(page.text, str(page.url))
+                if link and link not in tried:
+                    r = await client.get(link, headers=self.HEADERS)
+                    posts = S.parse_feed(r.text) if r.status_code == 200 else []
+                    if posts:
+                        return posts, link
+                # No feed at all: read the issues the homepage links to instead.
+                posts = await self._archive_posts(client, page.text, str(page.url))
+                if posts:
+                    return posts, str(page.url)
+        except httpx.HTTPError as e:
+            logger.debug("sponsors: homepage %s unreachable (%s)", home, e)
+        # Raise rather than return []: "no feed" must not read as "no sponsors".
+        raise RuntimeError(
+            f"no RSS feed or issue archive found for {url} (tried "
+            f"{', '.join(tried)} and the homepage). Pass the feed URL directly "
+            f"if it lives somewhere else.")
+
+    async def _archive_posts(self, client, home_html: str, home_url: str,
+                             limit: int = 8):
+        from harvey.collectors import sponsors as S
+
+        links = S.post_links_from_html(home_html, home_url, limit=limit)
+        if not links:
+            archive = home_url.rstrip("/") + "/archive"
+            try:
+                r = await client.get(archive, headers=self.HEADERS)
+                if r.status_code == 200:
+                    links = S.post_links_from_html(r.text, str(r.url), limit=limit)
+            except httpx.HTTPError:
+                links = []
+        posts = []
+        for i, link in enumerate(links):
+            if i:
+                await asyncio.sleep(self.MIN_INTERVAL / 2)
+            try:
+                r = await client.get(link, headers=self.HEADERS)
+            except httpx.HTTPError:
+                continue
+            if r.status_code == 200:
+                posts.append(S.post_from_html(r.text, link))
+        return posts
+
+    async def _resolve(self, client, urls: list[str]) -> dict[str, str]:
+        landed = {}
+        for u in urls[:20]:
+            try:
+                r = await client.head(u, headers=self.HEADERS)
+                landed[u] = str(r.url)
+            except httpx.HTTPError:
+                continue
+        return landed
+
+    async def fetch(self, client, env, query):
+        from harvey.collectors import sponsors as S
+
+        posts, feed_url = await self._feed_posts(client, query.term)
+        posts = posts[: query.limit]
+        newsletter = normalize_domain(query.term) or normalize_domain(feed_url)
+        resolved = await self._resolve(client, S.shortener_links(posts, newsletter))
+
+        out = []
+        for row in S.summarize(posts, newsletter, resolved):
+            latest = row.latest
+            out.append(Business(
+                name=row.name or row.domain,
+                domain=row.domain,
+                website=f"https://{row.domain}",
+                category="newsletter sponsor",
+                location=query.location,
+                has_website=True,
+                source_url=(latest.url if latest else "") or feed_url,
+                provider=self.key,
+                sponsor_of=row.newsletter,
+                placements=row.placements,
+                evidence_title=latest.title if latest else "",
+                confidence=row.confidence,
+            ))
+        return out
+
+
 PROVIDERS: dict[str, DiscoveryProvider] = {
     p.key: p for p in (
         OpenStreetMap(),
         DataForSEOListings(),
         DataForSEOSerp(),
         Serper(),
+        NewsletterSponsors(),
     )
 }
 
@@ -659,14 +799,25 @@ class DiscoveryReport:
 
 
 def build_queries(config, cities: list[str] | None = None,
-                  depth: int = 30, limit: int = 100) -> list[DiscoveryQuery]:
+                  depth: int = 30, limit: int = 100,
+                  provider_key: str = "",
+                  newsletters: list[str] | None = None) -> list[DiscoveryQuery]:
     """Turn the configured ICP into a concrete query list.
 
     One query per (industry x city). Coordinates come from
     ``icp.geo_coordinates`` when present, because listings providers need a
     radius, not a place name.
+
+    The sponsors provider asks a different question, so it gets a different
+    list: one query per peer newsletter (``icp.seed_newsletters``).
     """
     icp = config.icp
+    provider = PROVIDERS.get(provider_key)
+    if provider is not None and provider.kind == "sponsors":
+        seeds = newsletters if newsletters is not None else list(
+            getattr(icp, "seed_newsletters", []) or [])
+        return [DiscoveryQuery(term=n.strip(), limit=limit)
+                for n in seeds if n.strip()]
     terms = list(icp.industries) or [config.product.name]
     places = cities if cities is not None else list(icp.geography) or [""]
     coords = getattr(icp, "geo_coordinates", {}) or {}
@@ -706,7 +857,14 @@ async def run_discovery(
     if provider is None:
         raise ValueError(f"unknown discovery provider: {provider_key!r}")
 
-    queries = queries or build_queries(config)
+    queries = queries or build_queries(config, provider_key=provider_key)
+    if provider.kind == "sponsors" and not queries:
+        report = DiscoveryReport(provider=provider_key)
+        report.errors.append(
+            "no newsletters to read — add icp.seed_newsletters to harvey.yaml "
+            "or pass --newsletter")
+        report.stopped = "no newsletters"
+        return report
     if provider.kind == "listings":
         queries = await resolve_coordinates(state, queries)
     report = DiscoveryReport(provider=provider_key, queries=len(queries))
@@ -756,8 +914,9 @@ async def run_discovery(
                 if report.actual_cost > max_spend:
                     report.stopped = "budget reached"
                     break
-                if i and provider.key == "osm":
-                    await asyncio.sleep(OpenStreetMap.MIN_INTERVAL)
+                interval = getattr(provider, "MIN_INTERVAL", 0)
+                if i and interval:
+                    await asyncio.sleep(interval)
 
                 try:
                     provider.last_cost = 0.0
@@ -778,15 +937,20 @@ async def run_discovery(
                         report.junk += 1
                         continue
                     ident = biz.identity()
-                    if not ident or ident in seen:
+                    # A brand that sponsors three peer newsletters is three
+                    # facts, not a duplicate. Everything else dedups on identity.
+                    key = f"{ident}|{biz.sponsor_of}" if biz.sponsor_of else ident
+                    if not ident or key in seen:
                         continue
-                    seen.add(ident)
+                    seen.add(key)
 
                     company_id, is_new = await _upsert(state, biz, query)
                     if is_new:
                         report.new_companies += 1
                     else:
                         report.known_companies += 1
+                    if biz.sponsor_of:
+                        await _record_sponsorship(state, company_id, biz)
                     batch.extend(_observations(biz, company_id, confirmed,
                                                report.run_id))
 
@@ -834,6 +998,22 @@ async def _upsert(state, biz: Business, query: DiscoveryQuery) -> tuple[str, boo
     return await state.add_company(company), True
 
 
+async def _record_sponsorship(state, company_id: str, biz: Business) -> None:
+    """Put the sponsorship on the company where the writer will see it.
+
+    The writer personalises from ``company.signals``. The detail is kept
+    stable per newsletter so a re-run doesn't stack a new line per issue;
+    the latest evidence travels in its own keys.
+    """
+    await state.update_company_signals(company_id, new_signals=[{
+        "type": "sponsors_newsletter",
+        "detail": f"Has paid to sponsor the {biz.sponsor_of} newsletter",
+        "newsletter": biz.sponsor_of,
+        "evidence_url": biz.source_url,
+        "evidence_title": biz.evidence_title,
+    }])
+
+
 def _observations(biz: Business, company_id: str, confirmed: set[str],
                   run_id: str) -> list[dict]:
     """Every fact this business gave us, as rows — and only the confirmed ones."""
@@ -847,6 +1027,11 @@ def _observations(biz: Business, company_id: str, confirmed: set[str],
                 "confidence": conf, "evidence_url": biz.source_url,
                 "run_id": run_id,
             })
+
+    if biz.sponsor_of:
+        add("SPONSORS_NEWSLETTER", text=biz.sponsor_of, conf=biz.confidence)
+        add("SPONSOR_PLACEMENTS", num=float(biz.placements), conf=biz.confidence)
+        return rows
 
     add("FOUND_IN_SERP", text=biz.provider)
     if biz.rank is not None:

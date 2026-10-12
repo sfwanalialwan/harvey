@@ -45,6 +45,36 @@ SIGNAL_CATALOG: list[dict] = [
         "cost_note": "included in the search above",
         "confidence_floor": 0.0,
     },
+    {
+        "code": "SPONSORS_NEWSLETTER",
+        "label": "Sponsors newsletters like yours",
+        "description": (
+            "The brand appeared in a sponsor section (\"presented by\", "
+            "\"together with\") of a newsletter you named as a peer. For a "
+            "newsletter selling sponsorships this is the warmest lead there "
+            "is: they already buy the exact placement you sell, to readers "
+            "like yours. Value is the peer newsletter's domain."
+        ),
+        "category": "discovery",
+        "value_type": "text",
+        "collector": "discover",
+        "cost_note": "free (the peer newsletter's public RSS feed)",
+        "confidence_floor": 0.0,
+    },
+    {
+        "code": "SPONSOR_PLACEMENTS",
+        "label": "Sponsor placements seen",
+        "description": (
+            "How many recent issues of that newsletter carried the brand. One "
+            "is a test; three or more is a budget line, and a brand that "
+            "re-books is one that saw results from newsletter readers."
+        ),
+        "category": "discovery",
+        "value_type": "num",
+        "collector": "discover",
+        "cost_note": "included in the newsletter feed read above",
+        "confidence_floor": 0.0,
+    },
 
     {
         "code": "NO_WEBSITE",

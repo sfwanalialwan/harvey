@@ -776,10 +776,13 @@ def _discovery_queries(body: dict, config):
     from harvey.collectors.discover import build_queries
 
     cities = [c.strip() for c in (body.get("cities") or []) if c.strip()] or None
+    newsletters = [n.strip() for n in (body.get("newsletters") or []) if n.strip()] or None
     return build_queries(
         config, cities=cities,
         depth=int(body.get("depth") or 30),
         limit=int(body.get("limit") or 100),
+        provider_key=body.get("provider") or "",
+        newsletters=newsletters,
     )
 
 
