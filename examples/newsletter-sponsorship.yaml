@@ -1,0 +1,86 @@
+# Harvey, set up to sell sponsorships in your newsletter.
+#
+#   cp examples/newsletter-sponsorship.yaml harvey.yaml
+#   harvey signals --confirm free
+#   harvey discover --provider sponsors --estimate
+#   harvey discover --provider sponsors
+#
+# The "product" is your audience. The prospects are brands that already sponsor
+# newsletters like yours, found by reading those newsletters' public archives.
+# Replace every value below with your own. Everything the writer says about
+# your audience comes from here, so keep the numbers exact and current.
+
+persona:
+  name: "Your Name"
+  company: "Your Newsletter"
+  role: "Founder"
+  email: "you@yourdomain.com"          # send pitches from a personal address,
+  linkedin: ""                          # not the newsletter's sending domain
+  tone: "warm, direct, plain-spoken"
+
+product:
+  name: "Sponsorships in Your Newsletter"
+  description: >-
+    A weekly newsletter for <who reads it>. Sponsors get a placement in front
+    of readers who <why they are a good audience>.
+  pricing: "Primary sponsor $X per send. Secondary placement $Y. Test placement available."
+  key_benefits:
+    - "<N> active subscribers"
+    - "<N>% average open rate over the last 4 weeks"
+    - "Readers who <a specific, true thing about engagement>"
+  objection_responses:
+    "too expensive": "A single secondary placement is a lower-cost way to test the audience."
+    "send me your media kit": "Here it is. The issue on <date> is about <topic>, which fits <product> well."
+    "we only do affiliate": "A lower flat fee plus a per-sale bonus can work for a first test."
+  offer:
+    primary: "Primary sponsor placement in one issue"
+    entry: "Secondary placement at an introductory price"
+    goal: "get_reply"
+    booking_method: "ask_preference"
+    booking_url: ""
+    meeting_duration: "15 minutes"
+    meeting_owner: ""
+
+icp:
+  industries:
+    - "newsletter sponsor"
+  company_size: "1-500 employees"
+  titles:
+    - "Partnerships Manager"
+    - "Head of Growth"
+    - "Growth Marketing Manager"
+    - "Influencer Marketing Manager"
+    - "Founder"
+  geography:
+    - "United States"
+  # Peer newsletters: ones your readers also read. Their sponsors are your
+  # prospects. A homepage, a /feed URL, or an RSS feed URL all work.
+  seed_newsletters:
+    - "example-peer-one.beehiiv.com"
+    - "example-peer-two.substack.com"
+    - "https://www.example-peer-three.com"
+
+# Adds the newsletter-sponsorship playbook to the scout, writer and handler.
+skills:
+  - newsletter_sponsorship
+
+channels:
+  email:
+    enabled: true
+    provider: "gmail"
+    max_daily_sends: 15        # brand pitches are few and personal; keep it low
+    require_approval: true     # every email waits in the Outbox for you
+    send_to_risky: false
+    max_bounce_rate: 0.05
+  linkedin:
+    enabled: false
+    max_daily_connections: 0
+    max_daily_messages: 0
+
+usage:
+  max_daily_claude_percent: 60
+  heartbeat_interval_minutes: 30
+  quiet_hours:
+    start: "19:00"
+    end: "08:00"
+    timezone: "America/New_York"

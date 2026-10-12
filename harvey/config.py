@@ -65,6 +65,10 @@ class ICPConfig(BaseModel):
     #   "Denver, CO": "39.7392,-104.9903,50"
     # Without one, listings providers can only match on the business name.
     geo_coordinates: dict[str, str] = {}
+    # Newsletter sponsorship mode: peer newsletters whose sponsors you want to
+    # pitch. URLs of beehiiv / Substack / Ghost / WordPress newsletters, or
+    # their RSS feeds directly. Read by `harvey discover --provider sponsors`.
+    seed_newsletters: list[str] = []
 
 
 class EmailChannelConfig(BaseModel):
@@ -158,6 +162,9 @@ class HarveyConfig(BaseModel):
     icp: ICPConfig
     channels: ChannelsConfig = ChannelsConfig()
     usage: UsageConfig = UsageConfig()
+    # Extra skill files (skills/<name>.md) loaded by the scout, writer and
+    # handler on top of their defaults, e.g. ["newsletter_sponsorship"].
+    skills: list[str] = []
 
 
 class EnvConfig(BaseModel):

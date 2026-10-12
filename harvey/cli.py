@@ -410,14 +410,23 @@ def cmd_discover(args):
 
         # Semicolons, not commas: "Denver, CO" is one city, not two.
         cities = [c.strip() for c in args.city.split(";") if c.strip()] or None
+        newsletters = [n.strip() for n in args.newsletter.split(";") if n.strip()] or None
         queries = build_queries(config, cities=cities,
-                                depth=args.depth, limit=args.limit)
+                                depth=args.depth, limit=args.limit,
+                                provider_key=args.provider,
+                                newsletters=newsletters)
+        if not queries and PROVIDERS[args.provider].kind == "sponsors":
+            print("\n  No newsletters to read. Add icp.seed_newsletters to harvey.yaml,"
+                  "\n  or pass them: harvey discover --provider sponsors "
+                  "--newsletter \"example.beehiiv.com;example.substack.com\"\n")
+            return
 
         report = await run_discovery(state, config, args.provider, queries,
                                      max_spend=args.max_spend, dry_run=True)
         print(f"\n  {len(queries)} queries via {PROVIDERS[args.provider].label}")
         for q in queries[:8]:
-            print(f"    - {q.keyword()}" + ("" if q.coordinate else
+            needs_coords = PROVIDERS[args.provider].kind == "listings"
+            print(f"    - {q.keyword()}" + ("" if q.coordinate or not needs_coords else
                   "   (no coordinates — add icp.geo_coordinates for radius search)"))
         if len(queries) > 8:
             print(f"    ... and {len(queries) - 8} more")
@@ -625,6 +634,10 @@ def main():
     sub.add_argument("--city", default="",
                      help='Semicolon-separated cities, e.g. "Denver, CO;Dallas, TX" '
                           '(default: icp.geography)')
+    sub.add_argument("--newsletter", default="",
+                     help='Sponsors provider: semicolon-separated peer newsletters, '
+                          'e.g. "example.beehiiv.com;example.substack.com" '
+                          '(default: icp.seed_newsletters)')
     sub.add_argument("--depth", type=int, default=30,
                      help="SERP depth (default: 30 — depth 100 costs 10x since Sept 2025)")
     sub.add_argument("--limit", type=int, default=100,

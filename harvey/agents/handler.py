@@ -105,7 +105,8 @@ class Handler:
         logger.info("Handler: Checking for replies...")
 
         # Load foundational skills for this agent
-        self.skills = self.brain.load_skills_for_agent("handler")
+        self.skills = self.brain.load_skills_for_agent(
+            "handler", extra=getattr(self.config, "skills", None))
 
         if not self.config.channels.email.enabled:
             return

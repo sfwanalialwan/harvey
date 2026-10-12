@@ -43,6 +43,13 @@ icp:
   # "Head of Growth" is shopping for growth tooling). Used for careers-page
   # scanning and job-board discovery. Empty = fall back to titles above.
   hiring_signals: []
+  # Newsletter sponsorship mode: peer newsletters whose sponsors you want to
+  # pitch (see examples/newsletter-sponsorship.yaml). Used by
+  # `harvey discover --provider sponsors`.
+  seed_newsletters: []
+
+# Extra skills for the scout, writer and handler, e.g. [newsletter_sponsorship]
+skills: []
 
 channels:
   email:

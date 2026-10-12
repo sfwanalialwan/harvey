@@ -5,6 +5,26 @@ Notable changes to Harvey. Dates are release dates; the format follows
 follow [semver](https://semver.org/), with the caveat that Harvey is pre-1.0 and
 minor versions can still change behaviour.
 
+## [Unreleased]
+
+### Added
+
+- **Newsletter sponsorship mode.** A new free discovery source,
+  `harvey discover --provider sponsors`, reads the public archives (RSS, or
+  the issue list when there is no feed) of peer newsletters named in
+  `icp.seed_newsletters` or `--newsletter`, and records every brand found in
+  a sponsor section, with the issue as evidence. Two new signals:
+  `SPONSORS_NEWSLETTER` and `SPONSOR_PLACEMENTS`.
+- **`skills:` in harvey.yaml** adds opt-in skill files to the scout, writer and
+  handler. Ships with `newsletter_sponsorship`, a playbook for selling ad space.
+- **`examples/newsletter-sponsorship.yaml`**, a ready-to-fill config for a
+  newsletter selling sponsorships.
+
+### Changed
+
+- Discovery pacing reads each provider's own `MIN_INTERVAL` instead of
+  special-casing OpenStreetMap.
+
 ## [0.2.0] — 2026-09-13
 
 The release that made Harvey worth running. The previous version could write

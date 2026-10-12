@@ -38,6 +38,7 @@ anything, and approving mail one message at a time:
 - [Quick start](#quick-start)
 - [You confirm what it looks for](#you-confirm-what-it-looks-for)
 - [The prospecting pipeline](#the-prospecting-pipeline)
+- [Selling sponsorships in your newsletter](#selling-sponsorships-in-your-newsletter)
 - [The skills library](#the-skills-library)
 - [The sub-agents](#the-sub-agents)
 - [Nothing sends without you](#nothing-sends-without-you)
@@ -152,11 +153,11 @@ harvey run
 
 This is the part that makes Harvey different from a black box, and it is deliberately not skippable.
 
-Harvey knows how to collect **23 signals** about a business. It does not collect any of them until you say so. On first run it *proposes* the catalog; you confirm, skip, or reject each one in the dashboard or from the terminal:
+Harvey knows how to collect **25 signals** about a business. It does not collect any of them until you say so. On first run it *proposes* the catalog; you confirm, skip, or reject each one in the dashboard or from the terminal:
 
 ```bash
 harvey signals                       # review the catalog
-harvey signals --confirm free        # everything that costs nothing (21 of them)
+harvey signals --confirm free        # everything that costs nothing (23 of them)
 harvey signals --confirm SERP_RANK   # a paid one, opted into explicitly
 ```
 
@@ -210,6 +211,7 @@ harvey discover               # go
 | **DataForSEO Business Listings** | $0.372 / 1,000 | $1 credit | Local trades, clinics, contractors. Phone, domain, rating, claimed status — and it can filter for businesses with **no website at all**. |
 | **DataForSEO SERP** | $0.0018 / search | $1 credit + free sandbox | Rank as the buying signal. |
 | **Serper** | ~$0.30–1.00 / 1,000 | 2,500 free, no card | The easiest paid one to try. |
+| **Newsletter sponsors** | free | unlimited, no account | Newsletters selling ad space. Lists every brand that sponsored the peer newsletters you name. See [below](#selling-sponsorships-in-your-newsletter). |
 
 Cities geocode themselves (cached forever, one lookup each). Directories, aggregators and institutions are filtered by pattern, not a blocklist — `en.wikipedia.org` and `biz.yelp.com` never make it in.
 
@@ -234,6 +236,64 @@ Harvey learns each company's **address pattern** and verifies one candidate, rat
 Every address is tagged honestly: `verified` / `risky` (catch-all) / `guess` / `invalid`. **Only deliverable ones are ever sent to.** A guess is never treated as a win.
 
 > Harvey is worth running even if you never let it send. `harvey export` writes a sequencer-ready CSV of everything it found.
+
+---
+
+## Selling sponsorships in your newsletter
+
+If you write a newsletter, your prospects aren't local businesses. They are
+brands that **already pay for newsletter placements** in front of readers like
+yours. That list is public: it sits in other newsletters' archives under
+"presented by", "together with" and "today's sponsor".
+
+The `sponsors` discovery source reads those archives for you:
+
+```bash
+cp examples/newsletter-sponsorship.yaml harvey.yaml   # then fill in your numbers
+harvey signals --confirm free
+harvey discover --provider sponsors --newsletter "peer-one.beehiiv.com;peer-two.substack.com"
+```
+
+```
+  DISCOVER — 14 results across 2 queries
+    11 new companies, 3 already known
+    28 observations recorded
+    actual cost: $0.0000
+```
+
+**How it finds them.** For each newsletter you name, Harvey reads its RSS feed
+(`/feed`, `/rss`, the feed the homepage advertises, or the issue archive if
+there is no feed). In each issue it looks for sponsor sections:
+
+- **Labelled sections** (confidence 1.0): a heading or short line such as
+  *"Presented by"*, *"Together with"*, *"Brought to you by:"*, *"Today's
+  sponsor"*, then every brand linked in that section, up to the next heading.
+  A list of three sponsors under one label is three sponsors.
+- **Paid tracking links** (confidence 0.6): links tagged
+  `utm_medium=sponsorship`, `paid`, `sponsored` and similar, or with "sponsor"
+  in the campaign name. The `utm_medium=newsletter` tag that beehiiv adds to
+  every link is ignored, because it is on editorial links too.
+
+It deliberately does **not** record research links, the newsletter's own pages,
+platform links ("Powered by beehiiv"), forms, podcasts, or prose like *"a trial
+sponsored by the dairy council"*. A brand you didn't pay attention to is a
+wasted email; a brand that never sponsored anyone is an embarrassing one.
+
+**What it records.** Two signals per brand and newsletter:
+`SPONSORS_NEWSLETTER` (which peer they sponsored) and `SPONSOR_PLACEMENTS` (how
+many recent issues carried them; re-booking means the channel works for them).
+The latest issue is kept as evidence, and the writer sees *"Has paid to sponsor
+the peer-one.beehiiv.com newsletter"*, which gives email 1 something specific
+and true to say.
+
+**What it pitches with.** `skills: [newsletter_sponsorship]` adds a playbook for
+selling ad space to the scout, writer and handler: who decides at a brand, the
+media-kit and rate questions, test placements, sponsored labelling, and never
+repeating a sponsor's health or results claims as your own. Your audience
+numbers come only from `product:` in harvey.yaml, so keep them exact.
+
+Everything else is unchanged: profiling, people, verification, the outbox
+approval gate. Nothing sends until you approve it.
 
 ---
 
